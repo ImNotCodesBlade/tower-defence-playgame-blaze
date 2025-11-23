@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPS Training</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a1a;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 2px rgba(0, 255, 0, 0.8);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair::after {
+            width: 20px;
+            height: 2px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 50;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .ui div {
+            margin-bottom: 10px;
+        }
+
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .ammo {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .health-bar {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 200px;
+            height: 20px;
+            background: rgba(255, 0, 0, 0.3);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 50;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff4444);
+            transition: width 0.3s;
+            width: 100%;
+        }
+
+        .hit-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 80;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .hit-indicator.headshot {
+            color: #ffd700;
+            text-shadow: 0 0 20px #ffd700;
+        }
+
+        .hit-indicator.hit {
+            color: #ff4444;
+            text-shadow: 0 0 20px #ff4444;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 200;
+            border: 2px solid #4CAF50;
+        }
+
+        .start-screen h1 {
+            font-size: 42px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+
+        .start-screen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .start-screen button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .start-screen button:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 200;
+            display: none;
+            border: 2px solid #ff4444;
+        }
+
+        .game-over h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #ff4444;
+        }
+
+        .game-over button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .game-over button:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="crosshair"></div>
+        
+        <div class="ui">
+            <div class="score">Punteggio: <span id="score">0</span></div>
+            <div>Kills: <span id="kills">0</span></div>
+            <div>Headshots: <span id="headshots">0</span></div>
+            <div>Accuracy: <span id="accuracy">0</span>%</div>
+            <div>Ondata: <span id="wave">1</span></div>
+            <div>Tempo: <span id="time">0:00</span></div>
+            <div>Bot attivi: <span id="activeBots">0</span></div>
+        </div>
+
+        <div class="ammo">
+            <span id="ammo">∞</span>
+        </div>
+
+        <div class="health-bar">
+            <div style="position: absolute; top: -25px; left: 0; font-size: 14px; color: white;">Punto Centrale</div>
+            <div class="health-fill" id="healthFill"></div>
+        </div>
+
+        <div class="hit-indicator" id="hitIndicator"></div>
+        
+        <div id="bossAlert" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 0, 0, 0.9); color: white; padding: 20px; border-radius: 10px; font-size: 24px; font-weight: bold; z-index: 150; display: none; text-align: center;">
+            ⚠️ BOSS IN ARRIVO! ⚠️
+        </div>
+
+        <div class="instructions">
+            <div style="font-size: 16px; margin-bottom: 5px;">🖱️ Muovi il CURSORE per mirare | 🖱️ CLICCA per sparare</div>
+            <div style="font-size: 12px; opacity: 0.8;">Mira al CENTRO del bot per headshot! DIFENDI IL PUNTO CENTRALE!</div>
+        </div>
+
+        <!-- Preview Carte -->
+        <div id="cardsPreview" style="position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.9); padding: 15px; border-radius: 10px; max-width: 300px; max-height: 80vh; overflow-y: auto; z-index: 100; border: 2px solid #4CAF50; display: none;">
+            <h3 style="color: #4CAF50; margin-bottom: 10px; text-align: center;">📚 Carte Disponibili</h3>
+            <div id="cardsPreviewList" style="font-size: 12px; line-height: 1.6;"></div>
+        </div>
+
+        <!-- Selezione Carte -->
+        <div id="cardSelection" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.95); padding: 30px; border-radius: 20px; z-index: 200; display: none; border: 3px solid #FFD700; max-width: 90%;">
+            <h2 style="color: #FFD700; text-align: center; margin-bottom: 20px;">🎴 Scegli una Carta!</h2>
+            <div id="cardOptions" style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;"></div>
+        </div>
+
+        <!-- Countdown Overlay (mostra 3..2..1 prima di riprendere il gioco) -->
+        <div id="countdownOverlay" style="position: absolute; inset: 0; display: none; align-items: center; justify-content: center; z-index: 300; pointer-events: none;">
+            <div id="countdownBox" style="pointer-events: auto; background: rgba(0,0,0,0.85); color: #fff; padding: 40px 60px; border-radius: 20px; border: 3px solid #4CAF50; font-size: 72px; font-weight: bold; text-align: center;">
+                <span id="countdownNumber">3</span>
+            </div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <h1>🛡️ Tower Defense</h1>
+            <p style="text-align: left; margin: 20px 0;">
+                <strong>COME GIOCARE:</strong><br><br>
+                1. Clicca "Inizia" per iniziare<br>
+                2. <strong>Muovi il cursore</strong> per mirare ai bot<br>
+                3. <strong>CLICCA</strong> sui bot per sparare<br>
+                4. <strong>Mira al CENTRO</strong> del bot per headshot = kill istantanea!<br>
+                5. <strong>Mira altrove</strong> sul bot = -50% vita<br><br>
+                <strong>DIFENDI IL PUNTO CENTRALE!</strong><br>
+                I bot si muovono verso il centro per distruggerlo!<br>
+                La difficoltà aumenta con il tempo!
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="startGame()">Inizia</button>
+                <button id="showCardsBtn" onclick="showCardsPreview(); document.getElementById('hideCardsBtn').style.display='block';" style="background: #2196F3;">📚 Vedi Carte</button>
+            </div>
+            <button id="hideCardsBtn" onclick="hideCardsPreview(); document.getElementById('hideCardsBtn').style.display='none';" style="display: none; margin-top: 10px; background: #f44336;">❌ Chiudi Carte</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2 id="gameOverTitle">Game Over!</h2>
+            <div id="gameOverStats" style="text-align: left; margin: 20px 0;">
+                <p><strong>Punteggio finale:</strong> <span id="finalScore">0</span></p>
+                <p><strong>Kills:</strong> <span id="finalKills">0</span></p>
+                <p><strong>Headshots:</strong> <span id="finalHeadshots">0</span></p>
+                <p><strong>Accuracy:</strong> <span id="finalAccuracy">0</span>%</p>
+                <p><strong>Tempo di sopravvivenza:</strong> <span id="finalTime">0:00</span></p>
+                <p><strong>Ondata raggiunta:</strong> <span id="finalWave">1</span></p>
+                <p><strong>Colpi sparati:</strong> <span id="finalShots">0</span></p>
+                <p><strong>Colpi a segno:</strong> <span id="finalHits">0</span></p>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="screenshotStats()" style="background: #2196F3;">📸 Screenshot Progressi</button>
+                <button onclick="restartGame()">🔄 Riprova</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Imposta dimensioni canvas
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Variabili di gioco
+        let gameState = 'start';
+        let score = 0;
+        let kills = 0;
+        let headshots = 0;
+        let wave = 1;
+        let spawnTimer = 0;
+        let spawnInterval = 180; // Frame tra ogni spawn
+        let baseSpawnInterval = 180;
+        let gameStartTime = 0;
+        let lastWaveTime = 0;
+        let shotsFired = 0;
+        let shotsHit = 0;
+        let bossActive = false;
+        let bossSpawnTimer = 0;
+        let lastKillMilestone = 0;
+        let botPowerMultiplier = 1.0; // Moltiplicatore di forza dei bot
+        let slowTimeActive = false;
+        let slowTimeEndTime = 0;
+        
+        // Buff attivi
+        const activeBuffs = {
+            towerHealth: 1.0, // Moltiplicatore vita torre
+            damageMultiplier: 1.0, // Moltiplicatore danno
+            criticalSize: 15, // Dimensione punto critico
+            fireRate: 1.0, // Velocità di fuoco
+            slowTimeDuration: 0, // Durata slow time
+            regeneration: 0, // Rigenerazione vita
+            shield: 0, // Scudo
+            penetration: 1.0, // Penetrazione
+            explosion: false, // Esplosione
+            freeze: false // Congelamento
+        };
+
+        // Player
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            health: 100,
+            maxHealth: 100
+        };
+
+        // Bot
+        let bots = [];
+        const botSize = 60;
+        const headSize = 20;
+        const botSpeed = 2;
+
+        // Mouse e visuale
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        
+        // Punto centrale da difendere
+        const centerPoint = {
+            x: 0, // Sarà impostato al centro del canvas
+            y: 0,
+            radius: 40,
+            health: 50,
+            maxHealth: 50
+        };
+        
+        // Boss
+        let boss = null;
+
+        // Hit indicator
+        const hitIndicator = document.getElementById('hitIndicator');
+        
+        // Definizione delle 20 carte disponibili
+        const allCards = [
+            // Carte Torre (10)
+            { id: 1, name: "Rinforzo Torre", type: "tower", description: "Aumenta la vita del punto centrale del 10%", effect: () => { centerPoint.maxHealth *= 1.1; centerPoint.health *= 1.1; } },
+            { id: 2, name: "Mura Rinforzate", type: "tower", description: "Aumenta la vita del punto centrale del 15%", effect: () => { centerPoint.maxHealth *= 1.15; centerPoint.health *= 1.15; } },
+            { id: 3, name: "Rigenerazione", type: "tower", description: "Rigenera 1% di vita ogni 5 secondi", effect: () => { activeBuffs.regeneration = 1; } },
+            { id: 4, name: "Scudo Protettivo", type: "tower", description: "Riduce il danno ricevuto del 20%", effect: () => { activeBuffs.shield = 0.8; } },
+            { id: 5, name: "Barriera Energetica", type: "tower", description: "Riduce il danno ricevuto del 30%", effect: () => { activeBuffs.shield = 0.7; } },
+            { id: 6, name: "Auto-Riparazione", type: "tower", description: "Rigenera 2% di vita ogni 3 secondi", effect: () => { activeBuffs.regeneration = 2; } },
+            { id: 7, name: "Torre di Ferro", type: "tower", description: "Aumenta la vita del punto centrale del 20%", effect: () => { centerPoint.maxHealth *= 1.2; centerPoint.health *= 1.2; } },
+            { id: 8, name: "Cura Istantanea", type: "tower", description: "Ripristina il 25% della vita massima", effect: () => { centerPoint.health = Math.min(centerPoint.maxHealth, centerPoint.health + centerPoint.maxHealth * 0.25); } },
+            { id: 9, name: "Difesa Passiva", type: "tower", description: "Riduce il danno ricevuto del 15%", effect: () => { activeBuffs.shield = Math.min(activeBuffs.shield || 1, 0.85); } },
+            { id: 10, name: "Fortezza", type: "tower", description: "Aumenta la vita del punto centrale del 25%", effect: () => { centerPoint.maxHealth *= 1.25; centerPoint.health *= 1.25; } },
+            
+            // Carte Cursore/Danno (10)
+            { id: 11, name: "Danno Potenziato", type: "cursor", description: "Aumenta il danno del 25%", effect: () => { activeBuffs.damageMultiplier *= 1.25; } },
+            { id: 12, name: "Colpo Critico", type: "cursor", description: "Aumenta la dimensione del punto critico del 30%", effect: () => { activeBuffs.criticalSize *= 1.3; } },
+            { id: 13, name: "Proiettili Esplosivi", type: "cursor", description: "I colpi esplodono danneggiando bot vicini", effect: () => { activeBuffs.explosion = true; } },
+            { id: 14, name: "Penetrazione", type: "cursor", description: "I colpi possono attraversare i bot", effect: () => { activeBuffs.penetration = 2; } },
+            { id: 15, name: "Fuoco Rapido", type: "cursor", description: "Aumenta la velocità di fuoco del 20%", effect: () => { activeBuffs.fireRate *= 1.2; } },
+            { id: 16, name: "Danno Massiccio", type: "cursor", description: "Aumenta il danno del 50%", effect: () => { activeBuffs.damageMultiplier *= 1.5; } },
+            { id: 17, name: "Mira Perfetta", type: "cursor", description: "Aumenta la dimensione del punto critico del 50%", effect: () => { activeBuffs.criticalSize *= 1.5; } },
+            { id: 18, name: "Congelamento", type: "cursor", description: "I bot colpiti vengono rallentati", effect: () => { activeBuffs.freeze = true; } },
+            { id: 19, name: "Raggio Letale", type: "cursor", description: "Aumenta il danno del 75%", effect: () => { activeBuffs.damageMultiplier *= 1.75; } },
+            { id: 20, name: "Slow Motion", type: "cursor", description: "Rallenta il tempo per 10 secondi", effect: () => { slowTimeActive = true; slowTimeEndTime = Date.now() + 10000; } }
+        ];
+
+        function startGame() {
+            gameState = 'playing';
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('cardsPreview').style.display = 'none';
+            score = 0;
+            kills = 0;
+            headshots = 0;
+            wave = 1;
+            spawnTimer = 0;
+            spawnInterval = baseSpawnInterval;
+            bots = [];
+            boss = null;
+            bossActive = false;
+            bossSpawnTimer = 0;
+            shotsFired = 0;
+            shotsHit = 0;
+            lastKillMilestone = 0;
+            botPowerMultiplier = 1.0;
+            slowTimeActive = false;
+            frameCount = 0;
+            gameStartTime = Date.now();
+            lastWaveTime = Date.now();
+            player.health = player.maxHealth;
+            
+            // Reset buff
+            activeBuffs.towerHealth = 1.0;
+            activeBuffs.damageMultiplier = 1.0;
+            activeBuffs.criticalSize = 15;
+            activeBuffs.fireRate = 1.0;
+            activeBuffs.slowTimeDuration = 0;
+            activeBuffs.regeneration = 0;
+            activeBuffs.shield = 0;
+            activeBuffs.penetration = 1.0;
+            activeBuffs.explosion = false;
+            activeBuffs.freeze = false;
+            
+            // Inizializza il punto centrale da difendere
+            centerPoint.x = canvas.width / 2;
+            centerPoint.y = canvas.height / 2;
+            centerPoint.health = centerPoint.maxHealth;
+            
+            updateUI();
+            updateCenterHealthBar();
+            
+            // Spawna un primo bot subito per mostrare come funziona
+            setTimeout(() => {
+                spawnBot();
+            }, 500);
+            
+            gameLoop();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+        
+        // Funzioni per le carte
+        function showCardsPreview() {
+            const preview = document.getElementById('cardsPreview');
+            const list = document.getElementById('cardsPreviewList');
+            list.innerHTML = '';
+            
+            allCards.forEach((card, index) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.style.marginBottom = '10px';
+                cardDiv.style.padding = '8px';
+                cardDiv.style.border = '1px solid #4CAF50';
+                cardDiv.style.borderRadius = '5px';
+                cardDiv.innerHTML = `
+                    <strong style="color: ${card.type === 'tower' ? '#4CAF50' : '#FFD700'};">${card.name}</strong><br>
+                    <span style="font-size: 11px; color: #ccc;">${card.description}</span>
+                `;
+                list.appendChild(cardDiv);
+            });
+            
+            preview.style.display = 'block';
+        }
+        
+        function hideCardsPreview() {
+            document.getElementById('cardsPreview').style.display = 'none';
+        }
+        
+        function showCardSelection() {
+            const milestones = [30, 60, 120, 200, 300, 500];
+            if (!milestones.includes(kills) || kills === lastKillMilestone) {
+                return;
+            }
+            
+            lastKillMilestone = kills;
+            gameState = 'cardSelection';
+            
+            // Seleziona 3 carte random
+            const selectedCards = [];
+            const availableCards = [...allCards];
+            for (let i = 0; i < 3; i++) {
+                const randomIndex = Math.floor(Math.random() * availableCards.length);
+                selectedCards.push(availableCards[randomIndex]);
+                availableCards.splice(randomIndex, 1);
+            }
+            
+            const cardSelection = document.getElementById('cardSelection');
+            const cardOptions = document.getElementById('cardOptions');
+            cardOptions.innerHTML = '';
+            
+            selectedCards.forEach((card) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.style.width = '200px';
+                cardDiv.style.padding = '20px';
+                cardDiv.style.background = card.type === 'tower' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 215, 0, 0.2)';
+                cardDiv.style.border = `2px solid ${card.type === 'tower' ? '#4CAF50' : '#FFD700'}`;
+                cardDiv.style.borderRadius = '10px';
+                cardDiv.style.cursor = 'pointer';
+                cardDiv.style.transition = 'all 0.3s';
+                cardDiv.innerHTML = `
+                    <h3 style="color: ${card.type === 'tower' ? '#4CAF50' : '#FFD700'}; margin-bottom: 10px;">${card.name}</h3>
+                    <p style="font-size: 12px; color: #ccc; margin-bottom: 15px;">${card.description}</p>
+                    <div style="text-align: center; color: ${card.type === 'tower' ? '#4CAF50' : '#FFD700'}; font-weight: bold;">${card.type === 'tower' ? '🛡️ TORRE' : '🎯 CURSORE'}</div>
+                `;
+                
+                cardDiv.addEventListener('mouseenter', () => {
+                    cardDiv.style.transform = 'scale(1.05)';
+                    cardDiv.style.background = card.type === 'tower' ? 'rgba(76, 175, 80, 0.4)' : 'rgba(255, 215, 0, 0.4)';
+                });
+                
+                cardDiv.addEventListener('mouseleave', () => {
+                    cardDiv.style.transform = 'scale(1)';
+                    cardDiv.style.background = card.type === 'tower' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 215, 0, 0.2)';
+                });
+                
+                cardDiv.addEventListener('click', () => {
+                    selectCard(card);
+                });
+                
+                cardOptions.appendChild(cardDiv);
+            });
+            
+            cardSelection.style.display = 'block';
+        }
+        
+        // Flag per evitare ri-trigger multipli
+        let _cardSelectionInProgress = false;
+
+        function selectCard(card) {
+            if (_cardSelectionInProgress) return;
+            _cardSelectionInProgress = true;
+
+            // Applica effetto della carta
+            card.effect();
+
+            // Nascondi la selezione
+            const cardSelectionEl = document.getElementById('cardSelection');
+            cardSelectionEl.style.display = 'none';
+
+            // Mostra overlay di countdown per 3 secondi prima di riprendere il gioco
+            const countdownOverlay = document.getElementById('countdownOverlay');
+            const countdownNumber = document.getElementById('countdownNumber');
+            let countdown = 3;
+            countdownNumber.textContent = countdown;
+            countdownOverlay.style.display = 'flex';
+
+            const countdownInterval = setInterval(() => {
+                countdown -= 1;
+                if (countdown > 0) {
+                    countdownNumber.textContent = countdown;
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownOverlay.style.display = 'none';
+                    // Riprendi il gioco
+                    gameState = 'playing';
+                    updateCenterHealthBar();
+                    updateUI();
+                    // Riavvia il loop (necessario perché il loop si ferma quando gameState != 'playing')
+                    gameLoop();
+                    _cardSelectionInProgress = false;
+                }
+            }, 1000);
+        }
+        
+        function checkKillMilestones() {
+            const milestones = [30, 60, 120, 200, 300, 500];
+            if (milestones.includes(kills) && kills !== lastKillMilestone) {
+                showCardSelection();
+            }
+        }
+
+        function gameOver() {
+            gameState = 'gameOver';
+            const elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+            
+            // Popola statistiche
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalKills').textContent = kills;
+            document.getElementById('finalHeadshots').textContent = headshots;
+            document.getElementById('finalAccuracy').textContent = accuracy;
+            document.getElementById('finalTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('finalWave').textContent = wave;
+            document.getElementById('finalShots').textContent = shotsFired;
+            document.getElementById('finalHits').textContent = shotsHit;
+            
+            // Congratulazioni se il punteggio è alto
+            const titleElement = document.getElementById('gameOverTitle');
+            if (score >= 5000 || wave >= 5) {
+                titleElement.textContent = '🎉 Congratulazioni! 🎉';
+                titleElement.style.color = '#4CAF50';
+            } else if (score >= 2000 || wave >= 3) {
+                titleElement.textContent = '👏 Ottimo Lavoro! 👏';
+                titleElement.style.color = '#FFD700';
+            } else {
+                titleElement.textContent = 'Game Over!';
+                titleElement.style.color = '#ff4444';
+            }
+            
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function screenshotStats() {
+            // Crea uno screenshot delle statistiche
+            const gameOverElement = document.getElementById('gameOver');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Usa html2canvas se disponibile, altrimenti mostra un alert
+            if (typeof html2canvas !== 'undefined') {
+                html2canvas(gameOverElement).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `fps-stats-${Date.now()}.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                });
+            } else {
+                // Fallback: copia le statistiche come testo
+                const stats = `
+FPS Tower Defense - Statistiche
+Punteggio: ${score}
+Kills: ${kills}
+Headshots: ${headshots}
+Accuracy: ${document.getElementById('finalAccuracy').textContent}%
+Tempo: ${document.getElementById('finalTime').textContent}
+Ondata: ${wave}
+Colpi sparati: ${shotsFired}
+Colpi a segno: ${shotsHit}
+                `.trim();
+                
+                navigator.clipboard.writeText(stats).then(() => {
+                    alert('Statistiche copiate negli appunti!');
+                }).catch(() => {
+                    alert('Statistiche:\n' + stats);
+                });
+            }
+        }
+
+        function spawnBot() {
+            // Spawna bot ai bordi dello schermo che si muovono verso il centro
+            const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+            let spawnX, spawnY;
+            
+            switch(side) {
+                case 0: // Top
+                    spawnX = Math.random() * canvas.width;
+                    spawnY = -botSize;
+                    break;
+                case 1: // Right
+                    spawnX = canvas.width + botSize;
+                    spawnY = Math.random() * canvas.height;
+                    break;
+                case 2: // Bottom
+                    spawnX = Math.random() * canvas.width;
+                    spawnY = canvas.height + botSize;
+                    break;
+                case 3: // Left
+                    spawnX = -botSize;
+                    spawnY = Math.random() * canvas.height;
+                    break;
+            }
+
+            bots.push({
+                x: spawnX,
+                y: spawnY,
+                health: 100,
+                maxHealth: 100,
+                speed: botSpeed + wave * 0.5,
+                color: `hsl(${Math.random() * 60 + 0}, 70%, 50%)`
+            });
+        }
+
+        function updateBots() {
+            // Applica slow time se attivo
+            const timeMultiplier = slowTimeActive && Date.now() < slowTimeEndTime ? 0.5 : 1.0;
+            
+            bots.forEach((bot, index) => {
+                // Applica freeze se attivo
+                const freezeMultiplier = (activeBuffs.freeze && bot.frozen) ? 0.3 : 1.0;
+                
+                // Muove il bot verso il centro da difendere
+                const dx = centerPoint.x - bot.x;
+                const dy = centerPoint.y - bot.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    bot.x += (dx / distance) * bot.speed * timeMultiplier * freezeMultiplier;
+                    bot.y += (dy / distance) * bot.speed * timeMultiplier * freezeMultiplier;
+                }
+
+                // Rimuove bot morti
+                if (bot.health <= 0) {
+                    bots.splice(index, 1);
+                    kills++;
+                    score += 100;
+                    checkKillMilestones();
+                    updateUI();
+                }
+
+                // Danno al punto centrale se il bot lo raggiunge
+                // Il danno è proporzionale alla vita del bot e aumenta con botPowerMultiplier
+                if (distance < centerPoint.radius + botSize / 2) {
+                    const healthPercent = bot.health / bot.maxHealth;
+                    const maxDamage = 2 * botPowerMultiplier; // Danno aumentato dalla forza dei bot
+                    let damage = maxDamage * healthPercent; // Danno proporzionale
+                    
+                    // Applica scudo se attivo
+                    if (activeBuffs.shield > 0) {
+                        damage *= activeBuffs.shield;
+                    }
+                    
+                    centerPoint.health -= damage;
+                    updateCenterHealthBar();
+                    // Rimuove il bot dopo aver fatto danno
+                    bots.splice(index, 1);
+                    if (centerPoint.health <= 0) {
+                        gameOver();
+                    }
+                }
+            });
+        }
+
+        function shoot(event) {
+            if (gameState !== 'playing') return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            shotsFired++;
+            let hit = false;
+            let isHeadshot = false;
+
+            // Controlla colpo al boss
+            if (boss && bossActive) {
+                const criticalPointSize = 20;
+                const criticalDistance = Math.sqrt(
+                    Math.pow(clickX - boss.criticalPointX, 2) + 
+                    Math.pow(clickY - boss.criticalPointY, 2)
+                );
+
+                // Colpo al punto critico del boss (25% danno)
+                if (criticalDistance < criticalPointSize) {
+                    boss.health -= boss.maxHealth * 0.25;
+                    hit = true;
+                    shotsHit++;
+                    score += 500;
+                    showHitIndicator('BOSS HIT!');
+                    if (boss.health <= 0) {
+                        // Cura del 2% quando il boss viene sconfitto
+                        centerPoint.health = Math.min(centerPoint.maxHealth, centerPoint.health + centerPoint.maxHealth * 0.02);
+                        updateCenterHealthBar();
+                        boss = null;
+                        bossActive = false;
+                        kills++;
+                        score += 1000;
+                    }
+                    updateUI();
+                    return;
+                }
+            }
+
+            bots.forEach((bot, index) => {
+                const botCenterX = bot.x;
+                const botCenterY = bot.y;
+                
+                // Il punto critico è al CENTRO del bot (con buff applicato)
+                const criticalPointSize = activeBuffs.criticalSize || 15;
+                const centerDistance = Math.sqrt(
+                    Math.pow(clickX - botCenterX, 2) + 
+                    Math.pow(clickY - botCenterY, 2)
+                );
+
+                // Controlla headshot (colpo al centro)
+                if (centerDistance < criticalPointSize) {
+                    bot.health = 0;
+                    hit = true;
+                    isHeadshot = true;
+                    shotsHit++;
+                    headshots++;
+                    score += Math.floor(200 * activeBuffs.damageMultiplier);
+                    showHitIndicator('HEADSHOT');
+                    
+                    // Applica esplosione se attiva
+                    if (activeBuffs.explosion) {
+                        bots.forEach((otherBot, otherIndex) => {
+                            if (otherIndex !== index) {
+                                const explosionDistance = Math.sqrt(
+                                    Math.pow(botCenterX - otherBot.x, 2) + 
+                                    Math.pow(botCenterY - otherBot.y, 2)
+                                );
+                                if (explosionDistance < 100) {
+                                    otherBot.health -= 25;
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Applica freeze se attivo
+                    if (activeBuffs.freeze) {
+                        bot.frozen = true;
+                    }
+                    
+                    return;
+                }
+
+                // Controlla colpo al corpo (ma non al centro)
+                const bodyDistance = Math.sqrt(
+                    Math.pow(clickX - botCenterX, 2) + 
+                    Math.pow(clickY - botCenterY, 2)
+                );
+
+                if (bodyDistance < botSize / 2 && bodyDistance >= criticalPointSize) {
+                    // Applica danno con moltiplicatore
+                    const baseDamage = 50;
+                    const damage = Math.floor(baseDamage * activeBuffs.damageMultiplier);
+                    bot.health -= damage;
+                    hit = true;
+                    shotsHit++;
+                    score += Math.floor(50 * activeBuffs.damageMultiplier);
+                    showHitIndicator('HIT');
+                    
+                    // Applica freeze se attivo
+                    if (activeBuffs.freeze) {
+                        bot.frozen = true;
+                    }
+                    
+                    if (bot.health <= 0) {
+                        kills++;
+                        checkKillMilestones();
+                        score += Math.floor(50 * activeBuffs.damageMultiplier);
+                    }
+                }
+            });
+
+            updateUI();
+        }
+
+        function showHitIndicator(type) {
+            hitIndicator.textContent = type === 'HEADSHOT' ? 'HEADSHOT!' : 'HIT';
+            hitIndicator.className = `hit-indicator ${type === 'HEADSHOT' ? 'headshot' : 'hit'}`;
+            hitIndicator.style.opacity = '1';
+            
+            setTimeout(() => {
+                hitIndicator.style.opacity = '0';
+            }, 200);
+        }
+
+        function drawBackground() {
+            // Sfondo scuro
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Griglia di riferimento
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+            
+            // Cerchi concentrici attorno al centro per indicare la zona da difendere
+            ctx.strokeStyle = 'rgba(0, 150, 255, 0.2)';
+            ctx.lineWidth = 2;
+            for (let r = 100; r <= 300; r += 50) {
+                ctx.beginPath();
+                ctx.arc(centerPoint.x, centerPoint.y, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function drawBot(bot) {
+            const botCenterX = bot.x;
+            const botCenterY = bot.y;
+
+            // Disegna solo se il bot è visibile sullo schermo
+            if (botCenterX < -botSize || botCenterX > canvas.width + botSize || 
+                botCenterY < -botSize || botCenterY > canvas.height + botSize) {
+                return;
+            }
+
+            // Corpo del bot
+            ctx.fillStyle = bot.color;
+            ctx.beginPath();
+            ctx.arc(botCenterX, botCenterY, botSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bordo corpo
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // PUNTO CRITICO al centro (per headshot) - usa buff se disponibile
+            const criticalSize = activeBuffs.criticalSize || 15;
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(botCenterX, botCenterY, criticalSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bordo punto critico
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Barra vita
+            if (bot.health < bot.maxHealth) {
+                const healthPercent = bot.health / bot.maxHealth;
+                const barWidth = botSize;
+                const barHeight = 5;
+                const barX = botCenterX - barWidth / 2;
+                const barY = botCenterY - botSize / 2 - 15;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : '#ff4444';
+                ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+            }
+        }
+
+        function drawCenterPoint() {
+            // Disegna il punto centrale da difendere
+            const centerX = centerPoint.x;
+            const centerY = centerPoint.y;
+            const radius = centerPoint.radius;
+            
+            // Cerchio esterno pulsante
+            ctx.fillStyle = 'rgba(0, 150, 255, 0.3)';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Cerchio interno
+            ctx.fillStyle = '#0096ff';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bordo
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Indicatore di salute
+            const healthPercent = centerPoint.health / centerPoint.maxHealth;
+            if (healthPercent < 1) {
+                ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : '#ff4444';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * 0.5, 0, Math.PI * 2 * healthPercent);
+                ctx.fill();
+            }
+        }
+
+        function draw() {
+            drawBackground();
+            bots.forEach(bot => drawBot(bot));
+            if (boss && bossActive) {
+                drawBoss();
+            }
+            drawCenterPoint();
+        }
+
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('kills').textContent = kills;
+            document.getElementById('headshots').textContent = headshots;
+            document.getElementById('wave').textContent = wave;
+            document.getElementById('activeBots').textContent = bots.length + (bossActive ? 1 : 0);
+            
+            // Accuracy
+            const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+            document.getElementById('accuracy').textContent = accuracy;
+            
+            // Tempo
+            if (gameState === 'playing') {
+                const elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                document.getElementById('time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function updateHealthBar() {
+            const healthPercent = (player.health / player.maxHealth) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+        }
+        
+        function updateCenterHealthBar() {
+            const healthPercent = (centerPoint.health / centerPoint.maxHealth) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+        }
+
+        function updateDifficulty() {
+            // Aumenta la difficoltà ogni minuto (60 secondi)
+            const currentTime = Date.now();
+            const elapsedSeconds = (currentTime - gameStartTime) / 1000;
+            const newWave = Math.floor(elapsedSeconds / 60) + 1;
+            
+            if (newWave > wave) {
+                wave = newWave;
+                spawnInterval = Math.max(60, baseSpawnInterval - wave * 15);
+                lastWaveTime = currentTime;
+                // Aumenta la forza dei bot del 3% ogni minuto
+                botPowerMultiplier *= 1.03;
+            }
+            
+            // Spawna boss ogni minuto, 5 secondi prima della progressione
+            const secondsUntilWave = 60 - (elapsedSeconds % 60);
+            if (secondsUntilWave <= 5 && !bossActive && !boss) {
+                spawnBoss();
+            }
+        }
+        
+        function spawnBoss() {
+            const side = Math.floor(Math.random() * 4);
+            let spawnX, spawnY;
+            
+            switch(side) {
+                case 0: spawnX = Math.random() * canvas.width; spawnY = -100; break;
+                case 1: spawnX = canvas.width + 100; spawnY = Math.random() * canvas.height; break;
+                case 2: spawnX = Math.random() * canvas.width; spawnY = canvas.height + 100; break;
+                case 3: spawnX = -100; spawnY = Math.random() * canvas.height; break;
+            }
+            
+            boss = {
+                x: spawnX,
+                y: spawnY,
+                health: 400,
+                maxHealth: 400,
+                speed: 0.8, // Più lento dei bot normali
+                size: 100,
+                criticalPointX: 0,
+                criticalPointY: 0,
+                criticalPointAngle: 0,
+                color: '#8B0000'
+            };
+            bossActive = true;
+            boss.criticalPointX = boss.x;
+            boss.criticalPointY = boss.y;
+            
+            // Mostra alert
+            const bossAlert = document.getElementById('bossAlert');
+            bossAlert.style.display = 'block';
+            setTimeout(() => {
+                bossAlert.style.display = 'none';
+            }, 2000);
+        }
+        
+        function updateBoss() {
+            if (!boss || !bossActive) return;
+            
+            // Muove il boss verso il centro
+            const dx = centerPoint.x - boss.x;
+            const dy = centerPoint.y - boss.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0) {
+                boss.x += (dx / distance) * boss.speed;
+                boss.y += (dy / distance) * boss.speed;
+            }
+            
+            // Muove il punto critico in modo circolare attorno al centro del boss
+            boss.criticalPointAngle += 0.05;
+            const criticalRadius = boss.size * 0.3;
+            boss.criticalPointX = boss.x + Math.cos(boss.criticalPointAngle) * criticalRadius;
+            boss.criticalPointY = boss.y + Math.sin(boss.criticalPointAngle) * criticalRadius;
+            
+            // Danno al centro se il boss lo raggiunge
+            if (distance < centerPoint.radius + boss.size / 2) {
+                centerPoint.health -= 5; // Danno maggiore del boss
+                updateCenterHealthBar();
+                if (centerPoint.health <= 0) {
+                    gameOver();
+                }
+            }
+            
+            // Rimuove il boss se morto e cura il punto centrale
+            if (boss.health <= 0) {
+                // Cura del 2% quando il boss viene sconfitto
+                centerPoint.health = Math.min(centerPoint.maxHealth, centerPoint.health + centerPoint.maxHealth * 0.02);
+                updateCenterHealthBar();
+                boss = null;
+                bossActive = false;
+            }
+        }
+        
+        function drawBoss() {
+            if (!boss || !bossActive) return;
+            
+            const bossX = boss.x;
+            const bossY = boss.y;
+            
+            // Corpo del boss
+            ctx.fillStyle = boss.color;
+            ctx.beginPath();
+            ctx.arc(bossX, bossY, boss.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bordo
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Punto critico che si muove
+            const criticalSize = 20;
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(boss.criticalPointX, boss.criticalPointY, criticalSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bordo punto critico
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Barra vita
+            const healthPercent = boss.health / boss.maxHealth;
+            const barWidth = boss.size;
+            const barHeight = 8;
+            const barX = bossX - barWidth / 2;
+            const barY = bossY - boss.size / 2 - 20;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : '#ff4444';
+            ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+        }
+
+        let frameCount = 0;
+        
+        function gameLoop() {
+            if (gameState === 'playing') {
+                frameCount++;
+                
+                // Spawn bot (solo se non c'è un boss attivo)
+                if (!bossActive) {
+                    spawnTimer++;
+                    if (spawnTimer >= spawnInterval) {
+                        spawnBot();
+                        spawnTimer = 0;
+                    }
+                }
+
+                // Rigenerazione vita
+                if (activeBuffs.regeneration > 0) {
+                    const regenInterval = activeBuffs.regeneration === 1 ? 300 : 180; // 5 sec o 3 sec
+                    if (frameCount % regenInterval === 0) {
+                        const regenAmount = centerPoint.maxHealth * (activeBuffs.regeneration / 100);
+                        centerPoint.health = Math.min(centerPoint.maxHealth, centerPoint.health + regenAmount);
+                        updateCenterHealthBar();
+                    }
+                }
+                
+                // Controlla fine slow time
+                if (slowTimeActive && Date.now() >= slowTimeEndTime) {
+                    slowTimeActive = false;
+                }
+
+                updateBots();
+                updateBoss();
+                updateDifficulty();
+                updateUI();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Event listeners
+        canvas.addEventListener('click', shoot);
+        
+        // Traccia la posizione del mouse per il cursore
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        // Resize canvas
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            centerPoint.x = canvas.width / 2;
+            centerPoint.y = canvas.height / 2;
+        });
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>
